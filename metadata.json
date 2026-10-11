@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix منصة الرياضة المدرسية التفاعلية",
+  "description": "منصة رقمية متكاملة لإدارة حصص الرياضة، متابعة أداء الطالبات، وتنظيم السجلات والتقارير المدرسية بواجهة عربية تفاعلية وعصرية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

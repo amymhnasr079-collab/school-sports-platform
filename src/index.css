@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Cairo', sans-serif;
+    --font-body: 'Tajawal', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-body);
+    direction: rtl;
+    text-align: right;
+    background-color: #FAF7F2; /* Warm Creamy Beige Canvas */
+    color: #2C1A11; /* Deep Espresso Brown Text */
+  }
+
+  h1, h2, h3, h4, h5, h6, button, th {
+    font-family: var(--font-display);
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono), var(--font-display);
+}
+
+/* Custom Scrollbar in Warm Brown & Soft Beige */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #EFE6D8;
+}
+::-webkit-scrollbar-thumb {
+  background: #A06938;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4A2E1B;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .print-container {
+    box-shadow: none !important;
+    border: 1px solid #DFCDB6 !important;
+  }
+}

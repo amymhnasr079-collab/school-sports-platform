@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "بيانات طالبة في مدرسة عائشة بنت عثمان",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "grade": { "type": "number" },
+        "section": { "type": "string" },
+        "healthNotes": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "grade", "section"]
+    },
+    "MediaItem": {
+      "title": "MediaItem",
+      "description": "فيديو أو عرض تقديمي لمادة الرياضة المدرسية مع دعم الحفظ والرفع من الجهاز",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["presentation", "video", "lesson_plan", "rules"] },
+        "gradeRange": { "type": "string" },
+        "url": { "type": "string" },
+        "description": { "type": "string" },
+        "fileType": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "number" },
+        "fileSizeFormatted": { "type": "string" },
+        "mimeType": { "type": "string" },
+        "deviceStorageKey": { "type": "string" }
+      },
+      "required": ["id", "title", "category"]
+    },
+    "ScheduleSlot": {
+      "title": "ScheduleSlot",
+      "description": "حصة في الجدول المدرسي الأسبوعي",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "day": { "type": "string" },
+        "period": { "type": "number" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "grade": { "type": "number" },
+        "section": { "type": "string" },
+        "activityNote": { "type": "string" }
+      },
+      "required": ["id", "day", "period"]
+    },
+    "SchoolSchedule": {
+      "title": "SchoolSchedule",
+      "description": "الجدول المدرسي الأسبوعي المثبت لمدرسة عائشة بنت عثمان",
+      "type": "object",
+      "properties": {
+        "slots": { "type": "array" },
+        "scheduleImageDataUrl": { "type": "string" },
+        "generalNotes": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["slots"]
+    },
+    "PlatformData": {
+      "title": "PlatformData",
+      "description": "سجلات وقاعدة بيانات المنصة الرياضية الكاملة",
+      "type": "object",
+      "properties": {
+        "schoolInfo": { "type": "object" },
+        "students": { "type": "array" },
+        "mediaItems": { "type": "array" },
+        "schedule": { "type": "object" },
+        "uniformLogs": { "type": "array" },
+        "participationLogs": { "type": "array" },
+        "activities": { "type": "array" },
+        "stickers": { "type": "array" },
+        "awardedStickers": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["schoolInfo", "students", "schedule"]
+    }
+  },
+  "firestore": {
+    "/platform/main_data": {
+      "schema": "PlatformData",
+      "description": "الحفظ السحابي الدائم الشامل لكافة بيانات المنصة والطلاب والجدول والمكتبة الرقمية"
+    },
+    "/platform/schedule_data": {
+      "schema": "SchoolSchedule",
+      "description": "الحفظ السحابي الدائم والمستقل للجدول المدرسي الأسبوعي لضمان عدم حذفه أبداً"
+    },
+    "/media_items/{mediaId}": {
+      "schema": "MediaItem",
+      "description": "مكتبة الفيديوهات والعروض التقديمية"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "سجل الطالبات المستقل"
+    }
+  }
+}
