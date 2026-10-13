@@ -2,7 +2,8 @@
 
 @layer base {
   :root {
-    --font-display: 'Cairo', sans-serif;
+    --font-header: 'Changa', 'Alexandria', 'Cairo', sans-serif;
+    --font-display: 'Changa', 'Alexandria', 'Cairo', sans-serif;
     --font-body: 'Tajawal', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
   }
@@ -16,8 +17,32 @@
   }
 
   h1, h2, h3, h4, h5, h6, button, th {
-    font-family: var(--font-display);
+    font-family: var(--font-header);
   }
+}
+
+.font-header {
+  font-family: var(--font-header);
+}
+
+.font-changa {
+  font-family: 'Changa', sans-serif;
+}
+
+.font-alexandria {
+  font-family: 'Alexandria', sans-serif;
+}
+
+.font-kufi {
+  font-family: 'Noto Kufi Arabic', sans-serif;
+}
+
+.font-marhey {
+  font-family: 'Marhey', cursive, sans-serif;
+}
+
+.font-cairo {
+  font-family: 'Cairo', sans-serif;
 }
 
 .tabular-nums {

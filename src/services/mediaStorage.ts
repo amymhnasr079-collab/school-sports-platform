@@ -1,4 +1,5 @@
 import { MediaItem } from '../types';
+import { fetchCloudFileBlob } from './cloudStorage';
 
 const DB_NAME = 'AishaSportsMediaStore_v1';
 const STORE_NAME = 'media_files';
@@ -146,7 +147,19 @@ export async function downloadMediaFileToDevice(
       downloadFileName = `${item.title.replace(/[\\/:*?"<>|]/g, '_')}.${ext}`;
     }
 
-    // 1. Check if stored in IndexedDB
+    // 1. Try fetching from Persistent Cloud Storage (works across Netlify and all devices)
+    if (!blobToDownload) {
+      try {
+        const cloudBlob = await fetchCloudFileBlob(item);
+        if (cloudBlob) {
+          blobToDownload = cloudBlob;
+        }
+      } catch (err) {
+        console.warn('Persistent cloud fetch failed:', err);
+      }
+    }
+
+    // 2. Check if stored in IndexedDB (local cache)
     if (!blobToDownload && item.id) {
       const record = await getMediaFileLocally(item.id);
       if (record && record.blob) {
@@ -155,7 +168,7 @@ export async function downloadMediaFileToDevice(
       }
     }
 
-    // 2. If item has a local data URL
+    // 3. If item has a local data URL
     if (!blobToDownload && item.localDataUrl) {
       const res = await fetch(item.localDataUrl);
       blobToDownload = await res.blob();

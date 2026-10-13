@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Award,
@@ -9,7 +9,6 @@ import {
   Cloud,
   FileCheck,
   Home,
-  Presentation,
   ShieldCheck,
   Sparkles,
   Users,
@@ -17,6 +16,13 @@ import {
   KeyRound,
   Lock,
   Share2,
+  Dices,
+  Instagram,
+  ExternalLink,
+  Palette,
+  Type,
+  Check,
+  X,
 } from 'lucide-react';
 import {
   ActiveTab,
@@ -36,16 +42,23 @@ import {
 import { DashboardHome } from './components/DashboardHome';
 import { UniformTracker } from './components/UniformTracker';
 import { ParticipationTracker } from './components/ParticipationTracker';
+import { ClassroomTools } from './components/ClassroomTools';
 import { ActivitiesTracker } from './components/ActivitiesTracker';
 import { SchoolScheduleView } from './components/SchoolScheduleView';
 import { StickersLibrary } from './components/StickersLibrary';
 import { ReportsDashboard } from './components/ReportsDashboard';
 import { StudentsManager } from './components/StudentsManager';
 import { SecurityAndDeploymentGuide } from './components/SecurityAndDeploymentGuide';
-import { MediaLibrary } from './components/MediaLibrary';
 import { SchoolLogoView } from './components/OfficialSchoolEmblem';
 import { SharePlatformModal } from './components/SharePlatformModal';
 import { TeacherPinModal } from './components/TeacherPinModal';
+import { PinnedInstagramBadge } from './components/PinnedInstagramBadge';
+import {
+  HeaderFontFamily,
+  SportsBackdropIntensity,
+  SportsEquipmentBackdrop,
+  HEADER_FONT_OPTIONS,
+} from './components/SportsEquipmentBackdrop';
 import {
   getInitialRoleFromEnvironment,
   saveActiveRoleToSession,
@@ -59,6 +72,7 @@ import {
   saveCloudSchedule,
   fetchCloudSchedule,
 } from './services/firebase';
+import { PLATFORM_INSTAGRAM_URL, PLATFORM_INSTAGRAM_HANDLE } from './constants';
 
 const PRIMARY_STORAGE_KEY = 'aisha_school_sports_platform_beige_v1';
 export const PERMANENT_SCHEDULE_KEY = 'aisha_permanent_school_schedule_v1';
@@ -427,33 +441,58 @@ const INITIAL_FALLBACK_DB: AppDatabase = {
       title: 'عرض تقديمي: مهارات كرة السلة والتمرير الصدري',
       category: 'presentation',
       gradeRange: 'الصفوف 5–9',
-      url: 'https://www.canva.com',
-      description: 'عرض تفاعلي يوضح الخطوات الفنية للتمرير الصدري في كرة السلة والأخطاء الشائعة أثناء الأداء.',
-      fileType: 'canva',
+      url: 'https://docs.google.com/presentation/d/e/2PACX-1vT1c6Qh/embed',
+      description: 'عرض تفاعلي شامل يوضح الخطوات الفنية للتمرير الصدري في كرة السلة والأخطاء الشائعة أثناء الأداء.',
+      fileType: 'powerpoint',
+      fileName: 'عرض_مهارات_كرة_السلة_والتمرير_الصدري.pptx',
+      fileSizeFormatted: '4.8 ميجابايت',
       createdAt: '2026-10-10',
       addedBy: 'الأستاذة سالمة الحكماني',
+      sourceType: 'device',
+      isCloudStored: true,
     },
     {
       id: 'media-seed-2',
       title: 'فيديو تعليمي: مهارات التوافق الحركي والرشاقة في الجمباز المدرسي',
       category: 'video',
       gradeRange: 'الصفوف 1–4',
-      url: 'https://www.youtube.com',
-      description: 'فيديو تطبيقي وتمارين إحمائية لتطوير التوازن والرشاقة لدى طالبات الحلقة الأولى.',
+      url: 'https://www.youtube.com/watch?v=n4pGqYQZqK4',
+      description: 'فيديو تطبيقي وتمارين إحمائية لتطوير التوازن والرشاقة والتوافق العضلي العصبي لدى طالبات الحلقة الأولى.',
       fileType: 'youtube',
       createdAt: '2026-10-11',
       addedBy: 'الأستاذة سالمة الحكماني',
+      sourceType: 'url',
+      isCloudStored: true,
     },
     {
       id: 'media-seed-3',
-      title: 'قوانين وتحكيم الكرة الطائرة المدرسية وتخطيط الملعب',
+      title: 'فيديو وقوانين: تحكيم الكرة الطائرة المدرسية وتخطيط الملعب',
       category: 'rules',
       gradeRange: 'الصفوف 10–12',
-      url: 'https://drive.google.com',
-      description: 'دليل مبسط لقوانين الكرة الطائرة وتوزيع اللاعبات في الملعب وإشارات الحكم الرسمية.',
-      fileType: 'drive',
+      url: 'https://www.youtube.com/watch?v=3RGLc9UvI4U',
+      description: 'دليل مرئي مبسط لقوانين الكرة الطائرة وتوزيع اللاعبات في الملعب وإشارات الحكم الرسمية.',
+      fileType: 'video',
+      fileName: 'فيديو_شرح_قوانين_الكرة_الطائرة.mp4',
+      fileSizeFormatted: '8.2 ميجابايت',
       createdAt: '2026-10-11',
       addedBy: 'الأستاذة سالمة الحكماني',
+      sourceType: 'device',
+      isCloudStored: true,
+    },
+    {
+      id: 'media-seed-4',
+      title: 'دليل المعلمة: خطة درس نموذجي في اللياقة البدنية والسرعة',
+      category: 'lesson_plan',
+      gradeRange: 'الصفوف 5–9',
+      url: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      description: 'نموذج تحضير حصة رياضية نموذجية يشتمل على التهيئة البدنية، النشاط التعليمي، والختام.',
+      fileType: 'pdf',
+      fileName: 'خطة_درس_اللياقة_البدنية_والسرعة.pdf',
+      fileSizeFormatted: '1.4 ميجابايت',
+      createdAt: '2026-10-12',
+      addedBy: 'الأستاذة سالمة الحكماني',
+      sourceType: 'device',
+      isCloudStored: true,
     },
   ],
 };
@@ -476,6 +515,46 @@ export function App() {
 
   const [showShareModal, setShowShareModal] = useState<boolean>(false);
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
+  const [showFontModal, setShowFontModal] = useState<boolean>(false);
+
+  const [headerFont, setHeaderFont] = useState<HeaderFontFamily>(() => {
+    return (localStorage.getItem('platform_header_font') as HeaderFontFamily) || 'changa';
+  });
+
+  const [sportsBackdropIntensity, setSportsBackdropIntensity] = useState<SportsBackdropIntensity>(() => {
+    return (localStorage.getItem('platform_sports_intensity') as SportsBackdropIntensity) || 'prominent';
+  });
+
+  const handleUpdateHeaderFont = useCallback((font: HeaderFontFamily) => {
+    setHeaderFont(font);
+    localStorage.setItem('platform_header_font', font);
+  }, []);
+
+  const handleUpdateSportsIntensity = useCallback((intensity: SportsBackdropIntensity) => {
+    setSportsBackdropIntensity(intensity);
+    localStorage.setItem('platform_sports_intensity', intensity);
+  }, []);
+
+  const headerFontClass = useMemo(() => {
+    switch (headerFont) {
+      case 'changa':
+        return 'font-changa';
+      case 'alexandria':
+        return 'font-alexandria';
+      case 'kufi':
+        return 'font-kufi';
+      case 'marhey':
+        return 'font-marhey';
+      case 'cairo':
+        return 'font-cairo';
+      default:
+        return 'font-changa';
+    }
+  }, [headerFont]);
+
+  const currentFontOption = useMemo(() => {
+    return HEADER_FONT_OPTIONS.find((f) => f.id === headerFont) || HEADER_FONT_OPTIONS[0];
+  }, [headerFont]);
 
   const [currentUser, setCurrentUser] = useState<AuthUser>(() => {
     const role = getInitialRoleFromEnvironment();
@@ -793,6 +872,14 @@ export function App() {
       activeClass: 'bg-[#4A2E1B] text-white shadow-xs',
     },
     {
+      id: 'classroom_tools',
+      label: 'القرعة والمؤقت الرياضي',
+      sublabel: 'عجلة الطالبات والمؤقت والساعة الرملية',
+      icon: <Dices className="w-4 h-4 text-[#C58B50]" />,
+      iconBg: 'bg-[#FAF5EC] border border-[#DFCDB6]',
+      activeClass: 'bg-[#4A2E1B] text-white shadow-xs',
+    },
+    {
       id: 'activities',
       label: 'الأنشطة والمسابقات',
       sublabel: 'مهرجانات وبطولات الرياضة',
@@ -817,14 +904,6 @@ export function App() {
       activeClass: 'bg-[#4A2E1B] text-white shadow-xs',
     },
     {
-      id: 'media',
-      label: 'الفيديوهات والعروض',
-      sublabel: 'المكتبة الرقمية وشروحات المادة',
-      icon: <Presentation className="w-4 h-4 text-[#7C4E2E]" />,
-      iconBg: 'bg-[#F7EFE4] border border-[#DFCDB6]',
-      activeClass: 'bg-[#4A2E1B] text-white shadow-xs',
-    },
-    {
       id: 'reports',
       label: 'التقارير والإحصائيات',
       sublabel: 'تصدير CSV ورسوم بيانية',
@@ -845,8 +924,10 @@ export function App() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#2C1A11]" dir="rtl">
       {/* Header with Warm Espresso Brown & Soft Beige Accents */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-[#E8DDD0] sticky top-0 z-40 no-print shadow-[0_1px_8px_rgba(74,46,27,0.04)]">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
+      <header className="relative bg-white/95 backdrop-blur-md border-b border-[#E8DDD0] sticky top-0 z-40 no-print shadow-[0_1px_8px_rgba(74,46,27,0.04)] overflow-hidden">
+        {/* Sports Equipment Watermark in Top Header */}
+        <SportsEquipmentBackdrop variant="header-light" intensity={sportsBackdropIntensity} />
+        <div className="relative z-10 max-w-[1600px] mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -860,7 +941,7 @@ export function App() {
                 />
               </div>
               <div className="flex flex-col text-right">
-                <span className="leading-tight text-sm sm:text-base font-black">
+                <span className={`leading-tight text-sm sm:text-base font-black tracking-tight ${headerFontClass}`}>
                   منصة الرياضة المدرسية التفاعلية (طاقة وانطلاقة)
                 </span>
                 <span className="text-[10px] text-[#7D6752] font-bold sm:hidden">
@@ -874,7 +955,32 @@ export function App() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5 text-xs">
+          <div className="flex items-center gap-2 text-xs">
+            {/* Header Font & Sports Backdrop Quick Customizer Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowFontModal(true)}
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF5EC] border border-[#DFCDB6] text-[#4A2E1B] hover:bg-[#F2E8DC] font-bold text-xs transition-colors shadow-2xs"
+              title="تغيير نوع خط الترويسة وبروز الأدوات الرياضية في الخلفية"
+            >
+              <Palette className="w-3.5 h-3.5 text-[#8A5932]" />
+              <span>خط الترويسة: <strong className="text-[#7C4E2E]">{currentFontOption.label.split(' ')[1]}</strong></span>
+              <span className="text-xs">⚽</span>
+            </button>
+            {/* Official Instagram Account Button - Pinned & Clear */}
+            <a
+              href={PLATFORM_INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white hover:opacity-95 font-black text-xs shadow-xs transition-all hover:scale-105"
+              title="زيارة حساب الإنستغرام الرسمي @um_musk21 مباشرة"
+            >
+              <Instagram className="w-3.5 h-3.5 text-white shrink-0" />
+              <span className="hidden sm:inline">إنستغرام المنصة:</span>
+              <span className="font-extrabold dir-ltr">{PLATFORM_INSTAGRAM_HANDLE}</span>
+              <ExternalLink className="w-3 h-3 text-white/80 shrink-0 hidden md:inline" />
+            </a>
+
             {/* Share View-Only Link with Principal Button */}
             <button
               type="button"
@@ -1068,6 +1174,39 @@ export function App() {
               <span className="text-[#7D6752]">مشرفة المادة:</span> الأستاذة منيره الجابري
             </div>
           </div>
+
+          {/* Official Instagram Account Card in Sidebar */}
+          <div className="hidden md:block mt-3 p-3.5 rounded-xl bg-gradient-to-br from-[#FFF5F5] via-[#FFF8F0] to-[#FAF5EC] border border-[#F8D7DA] text-[11px] shadow-2xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shadow-2xs shrink-0">
+                  <Instagram className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="font-black text-[#4A2E1B] text-xs leading-none">حساب الإنستغرام</div>
+                  <div className="text-[10px] text-[#A06938] font-bold font-mono dir-ltr mt-0.5">
+                    {PLATFORM_INSTAGRAM_HANDLE}
+                  </div>
+                </div>
+              </div>
+              <span className="text-[9px] font-black bg-[#FD1D1D]/10 text-[#FD1D1D] px-1.5 py-0.5 rounded-md border border-[#FD1D1D]/20">
+                📌 مثبت
+              </span>
+            </div>
+            <p className="text-[10px] text-[#7D6752] leading-relaxed mb-2">
+              تابعوا التغطيات والفعاليات الرياضية لمبادرة (طاقة وانطلاقة).
+            </p>
+            <a
+              href={PLATFORM_INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-black text-[11px] shadow-2xs hover:opacity-95 transition-all hover:scale-[1.02]"
+              title="فتح حساب الإنستغرام مباشرة في نافذة جديدة"
+            >
+              <Instagram className="w-3 h-3" />
+              <span>فتح الحساب مباشرة ↗</span>
+            </a>
+          </div>
         </aside>
 
         {/* Content Viewport */}
@@ -1079,6 +1218,10 @@ export function App() {
               onNavigate={setActiveTab}
               onOpenShareModal={() => setShowShareModal(true)}
               onOpenPinModal={() => setShowPinModal(true)}
+              headerFont={headerFont}
+              onUpdateHeaderFont={handleUpdateHeaderFont}
+              sportsBackdropIntensity={sportsBackdropIntensity}
+              onUpdateSportsBackdropIntensity={handleUpdateSportsIntensity}
               onUpdateLogo={(logoDataUrl) =>
                 persistDatabase({
                   ...db,
@@ -1144,6 +1287,14 @@ export function App() {
                 });
               }}
               onNavigateToStudents={() => setActiveTab('students')}
+              onNavigateToTools={() => setActiveTab('classroom_tools')}
+            />
+          )}
+
+          {activeTab === 'classroom_tools' && (
+            <ClassroomTools
+              db={db}
+              currentUser={currentUser}
             />
           )}
 
@@ -1207,16 +1358,6 @@ export function App() {
             />
           )}
 
-          {activeTab === 'media' && (
-            <MediaLibrary
-              mediaItems={db.mediaItems || []}
-              currentUser={currentUser}
-              onSaveMediaItems={(items) =>
-                persistDatabase({ ...db, mediaItems: items })
-              }
-            />
-          )}
-
           {activeTab === 'reports' && <ReportsDashboard db={db} />}
 
           {activeTab === 'guide' && (
@@ -1237,6 +1378,28 @@ export function App() {
               onRestoreBackup={persistDatabase}
             />
           )}
+
+          {/* Global Platform Footer with Official Instagram Link */}
+          <footer className="mt-12 pt-6 pb-3 border-t border-[#E8DDD0] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#7D6752] no-print">
+            <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-right">
+              <span className="font-black text-[#4A2E1B]">منصة «طاقة وانطلاقة» التفاعلية</span>
+              <span className="hidden sm:inline">·</span>
+              <span>إعداد وتصميم: الأستاذة سالمة الحكماني</span>
+              <span className="hidden sm:inline">·</span>
+              <span>مدرسة عائشة بنت عثمان (1–12)</span>
+            </div>
+
+            <a
+              href={PLATFORM_INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-black text-xs hover:opacity-95 shadow-2xs transition-all hover:scale-105"
+              title="زيارة حساب الإنستغرام @um_musk21 مباشرة"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              <span>حساب الإنستغرام: {PLATFORM_INSTAGRAM_HANDLE} ↗</span>
+            </a>
+          </footer>
         </main>
       </div>
 
@@ -1253,6 +1416,148 @@ export function App() {
         onClose={() => setShowPinModal(false)}
         onSuccess={switchToTeacher}
       />
+
+      {/* Permanently Pinned Floating Instagram Badge */}
+      <PinnedInstagramBadge />
+
+      {/* Font & Sports Backdrop Customizer Modal */}
+      {showFontModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="bg-[#FAF7F2] text-[#2C1A11] rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-[#DFCDB6] relative space-y-6 max-h-[90vh] overflow-y-auto"
+            dir="rtl"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[#DFCDB6] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#4A2E1B] text-[#D4A76A] flex items-center justify-center shadow-xs shrink-0">
+                  <Palette className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-[#2C1A11]">
+                    تخصيص خط الترويسة وخلفية الأدوات الرياضية
+                  </h3>
+                  <p className="text-xs text-[#7D6752]">
+                    اختيار نوع خط عنوان المنصة، وضبط ظهور الأدوات الرياضية بخلفية الكتابة
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFontModal(false)}
+                className="text-[#7D6752] hover:text-[#2C1A11] p-1.5 rounded-xl hover:bg-[#EFE6D8] transition-colors"
+                title="إغلاق"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+                  <Type className="w-4 h-4 text-[#8A5932]" />
+                  <span>نوع الخط في الترويسة وعناوين المنصة:</span>
+                </label>
+                <span className="text-[11px] text-[#7C4E2E] font-bold bg-[#F5EFE6] px-2 py-0.5 rounded-lg border border-[#DFCDB6]">
+                  الحالي: {currentFontOption.label.split(' ')[1]}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {HEADER_FONT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleUpdateHeaderFont(opt.id)}
+                    className={`p-3.5 rounded-2xl border text-right transition-all flex items-center justify-between gap-3 ${
+                      headerFont === opt.id
+                        ? 'bg-[#4A2E1B] text-white border-[#4A2E1B] shadow-md ring-2 ring-[#D4A76A]/40'
+                        : 'bg-white hover:bg-[#F7EFE4] text-[#2C1A11] border-[#DFCDB6]'
+                    }`}
+                  >
+                    <div>
+                      <p className={`text-sm font-black ${opt.cssClass}`}>
+                        {opt.label}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 ${headerFont === opt.id ? 'text-[#F5E8D3]' : 'text-[#7D6752]'}`}>
+                        {opt.sublabel}
+                      </p>
+                    </div>
+                    <span className={`text-sm sm:text-base font-black px-2.5 py-1 rounded-xl shrink-0 ${opt.cssClass} ${
+                      headerFont === opt.id ? 'bg-white/20 text-white' : 'bg-[#FAF7F2] text-[#7C4E2E] border border-[#DFCDB6]'
+                    }`}>
+                      طاقة وانطلاقة ⚡
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-3 border-t border-[#DFCDB6]">
+              <label className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#8A5932]" />
+                <span>بروز الأدوات الرياضية في خلفية كتابة المنصة:</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  {
+                    id: 'prominent',
+                    label: 'بارزة وواضحة جداً',
+                    icon: '⚽🏀',
+                    desc: 'كرات وصافرات وأقماع واضحة وقوية',
+                  },
+                  {
+                    id: 'balanced',
+                    label: 'متوازنة وأنيقة',
+                    icon: '🌟',
+                    desc: 'المظهر الافتراضي المتزن',
+                  },
+                  {
+                    id: 'subtle',
+                    label: 'هادئة وخافتة',
+                    icon: '🍃',
+                    desc: 'خلفية خفيفة وناعمة',
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleUpdateSportsIntensity(item.id as SportsBackdropIntensity)}
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                      sportsBackdropIntensity === item.id
+                        ? 'bg-[#4A2E1B] text-white border-[#4A2E1B] shadow-sm'
+                        : 'bg-white hover:bg-[#F7EFE4] text-[#2C1A11] border-[#DFCDB6]'
+                    }`}
+                  >
+                    <div className="text-2xl">{item.icon}</div>
+                    <p className="text-xs font-black">{item.label}</p>
+                    <p
+                      className={`text-[10px] ${
+                        sportsBackdropIntensity === item.id ? 'text-[#F5E8D3]' : 'text-[#7D6752]'
+                      }`}
+                    >
+                      {item.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-[#DFCDB6]">
+              <p className="text-[11px] text-[#7D6752]">
+                يتم الحفظ تلقائياً في المتصفح والقاعدة السحابية ✓
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowFontModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4 text-[#D4A76A]" />
+                <span>تم، حفظ الإعدادات</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

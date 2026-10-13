@@ -8,16 +8,43 @@ import {
   getDocFromServer,
   Firestore,
 } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { AppDatabase, SchoolSchedule } from '../types';
-import firebaseConfig from '../../firebase-applet-config.json';
+import localFirebaseConfig from '../../firebase-applet-config.json';
 
-export { firebaseConfig };
+// Support both Netlify environment variables (VITE_FIREBASE_*) and bundled config
+export const firebaseConfig = {
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || localFirebaseConfig.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || localFirebaseConfig.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || localFirebaseConfig.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || localFirebaseConfig.authDomain,
+  firestoreDatabaseId:
+    import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID ||
+    localFirebaseConfig.firestoreDatabaseId,
+  storageBucket:
+    import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || localFirebaseConfig.storageBucket,
+  messagingSenderId:
+    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ||
+    localFirebaseConfig.messagingSenderId,
+};
 
 // Initialize Firebase App
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firestore with the provisioned database ID
 export const db: Firestore = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firebase Storage
+export const storage: FirebaseStorage | null = (() => {
+  try {
+    if (firebaseConfig.storageBucket) {
+      return getStorage(app);
+    }
+  } catch (err) {
+    console.warn('Firebase Storage initialization notice:', err);
+  }
+  return null;
+})();
 
 // Test connection on boot as mandated by skill
 export async function testConnection(): Promise<boolean> {

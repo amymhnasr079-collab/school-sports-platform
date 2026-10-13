@@ -6,6 +6,7 @@ export interface AuthUser {
   roleTitle: string;
   role: UserRole;
   permissions: string[];
+  email?: string;
 }
 
 export interface SchoolInfo {
@@ -169,6 +170,14 @@ export interface MediaItem {
   mimeType?: string;
   deviceStorageKey?: string;
   localDataUrl?: string;
+  // Cloud persistent storage fields
+  cloudFileId?: string;
+  cloudDownloadUrl?: string;
+  storageProvider?: 'supabase' | 'firebase_storage' | 'firestore_cloud' | 'url' | 'device';
+  isCloudStored?: boolean;
+  storagePath?: string;
+  uploadedByRole?: string;
+  uploadedByEmail?: string;
 }
 
 export interface AppDatabase {
@@ -187,10 +196,10 @@ export type ActiveTab =
   | 'dashboard'
   | 'uniform'
   | 'participation'
+  | 'classroom_tools'
   | 'activities'
   | 'schedule'
   | 'stickers'
   | 'reports'
   | 'students'
-  | 'media'
   | 'guide';

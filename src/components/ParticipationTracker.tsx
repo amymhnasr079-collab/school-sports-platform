@@ -7,6 +7,7 @@ import {
   Search,
   Trash2,
   Users,
+  Dices,
 } from 'lucide-react';
 import {
   AuthUser,
@@ -31,6 +32,7 @@ interface ParticipationTrackerProps {
   onSaveParticipationLog: (log: ParticipationLog) => void;
   onDeleteParticipationLog: (logId: string) => void;
   onNavigateToStudents: () => void;
+  onNavigateToTools?: () => void;
 }
 
 const DEFAULT_STUDENT_PARTICIPATION: ParticipationStudentRecord = {
@@ -51,6 +53,7 @@ export const ParticipationTracker: React.FC<ParticipationTrackerProps> = ({
   onSaveParticipationLog,
   onDeleteParticipationLog,
   onNavigateToStudents,
+  onNavigateToTools,
 }) => {
   const canEdit = currentUser.permissions.includes('edit');
   const canDelete = currentUser.permissions.includes('delete');
@@ -175,6 +178,17 @@ export const ParticipationTracker: React.FC<ParticipationTrackerProps> = ({
           </div>
 
           <div className="flex items-center gap-2 no-print">
+            {onNavigateToTools && (
+              <button
+                type="button"
+                onClick={onNavigateToTools}
+                className="px-3.5 py-2 text-xs font-bold text-[#4A2E1B] bg-white hover:bg-[#F7EFE4] rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap border border-[#DFCDB6] shadow-2xs"
+                title="فتح العجلة الدوارة لاختيار طالبة أو تشغيل المؤقت للحصة"
+              >
+                <Dices className="w-4 h-4 text-[#C58B50]" />
+                <span>القرعة والمؤقت 🎡⏱️</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.print()}

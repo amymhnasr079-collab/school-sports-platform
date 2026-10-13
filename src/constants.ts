@@ -7,6 +7,11 @@ import {
   UniformStatus,
 } from './types';
 
+// Official Platform Instagram Social Link
+export const PLATFORM_INSTAGRAM_URL =
+  'https://instagram.com/um_musk21?dlrf=MWg2dGtsYjcweXZnNQ%3D%3D&utm_source=qr';
+export const PLATFORM_INSTAGRAM_HANDLE = '@um_musk21';
+
 export const GRADES = [
   { value: 1, label: 'الصف الأول' },
   { value: 2, label: 'الصف الثاني' },

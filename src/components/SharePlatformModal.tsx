@@ -12,6 +12,7 @@ import {
   UserCheck,
   Users,
   X,
+  Instagram,
 } from 'lucide-react';
 import {
   generateShareUrl,
@@ -20,6 +21,7 @@ import {
   setTeacherPin,
 } from '../services/authSecurity';
 import { UserRole } from '../types';
+import { PLATFORM_INSTAGRAM_URL, PLATFORM_INSTAGRAM_HANDLE } from '../constants';
 
 interface SharePlatformModalProps {
   isOpen: boolean;
@@ -322,6 +324,36 @@ export const SharePlatformModal: React.FC<SharePlatformModalProps> = ({
                 {pinFeedback}
               </p>
             )}
+          </div>
+
+          {/* Official Instagram Account Card */}
+          <div className="rounded-2xl border border-[#F8D7DA] bg-gradient-to-r from-[#FFF5F5] via-[#FFF8F0] to-[#FAF5EC] p-3.5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shadow-xs shrink-0">
+                <Instagram className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+                  <span>حساب الإنستغرام:</span>
+                  <span className="font-mono dir-ltr text-[#A06938] font-bold">
+                    {PLATFORM_INSTAGRAM_HANDLE}
+                  </span>
+                </div>
+                <div className="text-[10px] text-[#7D6752]">
+                  متابعة وتغطية أنشطة وفعاليات مادة الرياضة المدرسية
+                </div>
+              </div>
+            </div>
+
+            <a
+              href={PLATFORM_INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] text-white font-bold text-xs shadow-2xs hover:opacity-95 flex items-center gap-1.5 transition-transform hover:scale-105"
+            >
+              <Instagram className="w-3.5 h-3.5" />
+              <span>زيارة الحساب مباشرة ↗</span>
+            </a>
           </div>
         </div>
 

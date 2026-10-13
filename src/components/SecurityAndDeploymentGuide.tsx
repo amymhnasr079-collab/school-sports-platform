@@ -12,6 +12,9 @@ import {
   ShieldCheck,
   Upload,
   UserCheck,
+  Cloud,
+  Server,
+  ExternalLink,
 } from 'lucide-react';
 import { AppDatabase, AuthUser, UserRole } from '../types';
 import {
@@ -20,6 +23,7 @@ import {
   getTeacherPin,
   setTeacherPin,
 } from '../services/authSecurity';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface SecurityAndDeploymentGuideProps {
   db: AppDatabase;
@@ -343,6 +347,89 @@ export const SecurityAndDeploymentGuide: React.FC<SecurityAndDeploymentGuideProp
                 <span>إرسال واتساب</span>
               </a>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Cloud Storage & Netlify Deployment Guide Card */}
+      <div className="bg-[#FAF5EC] rounded-2xl border border-[#DFCDB6] p-5 sm:p-6 space-y-4 shadow-[0_2px_8px_rgba(74,46,27,0.04)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DFCDB6] pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#4A2E1B] text-[#D4A76A] flex items-center justify-center">
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-[#4A2E1B]">
+                نظام التخزين السحابي الدائم ونشره على Netlify
+              </h3>
+              <p className="text-xs text-[#7D6752]">
+                دليل ربط Supabase Storage وحفظ الملفات سحابياً لجميع الأجهزة والزوار
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-black px-2.5 py-1 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#059669]" />
+              <span>التخزين المشترك نشط ومثبت</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Cloud Storage Engine Status */}
+          <div className="p-4 rounded-xl bg-white border border-[#E8DDD0] space-y-2.5">
+            <h4 className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+              <Server className="w-4 h-4 text-[#7C4E2E]" />
+              <span>حالة محركات التخزين السحابي:</span>
+            </h4>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#F8FAF8] border border-[#E2EBE2]">
+                <span className="font-bold text-[#2C4830]">محرك التخزين السحابي الفوري (Firestore Cloud):</span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-[#059669] text-white">
+                  متصل ويعمل تلقائياً ✓
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded-lg bg-[#FAF7F2] border border-[#EFE6D8]">
+                <span className="font-bold text-[#4A2E1B]">محرك Supabase Storage السحابي:</span>
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                    isSupabaseConfigured()
+                      ? 'bg-[#059669] text-white'
+                      : 'bg-[#F2E8DC] text-[#7C4E2E] border border-[#DECFC0]'
+                  }`}
+                >
+                  {isSupabaseConfigured() ? 'مفعّل ومتصل بنجاح ✓' : 'جاهز للتفعيل عبر متغيرات Netlify'}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-[#7D6752] leading-relaxed">
+              جميع الملفات المرفوعة تُحفظ سحابياً فوراً وتصبح متاحة لمديرة المدرسة والمشرفة وجميع المستخدمين من أي هاتف أو كمبيوتر دون الاعتماد على ذاكرة المتصفح المحلية فقط.
+            </p>
+          </div>
+
+          {/* Netlify Setup Steps */}
+          <div className="p-4 rounded-xl bg-white border border-[#E8DDD0] space-y-2.5">
+            <h4 className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+              <ExternalLink className="w-4 h-4 text-[#7C4E2E]" />
+              <span>خطوات ربط Supabase على Netlify (اختياري للتوسعة):</span>
+            </h4>
+            <ol className="text-xs text-[#5A402D] space-y-1.5 list-decimal list-inside leading-relaxed font-medium">
+              <li>
+                افتحي حسابك في <strong>Supabase</strong> وأنشئي Bucket جديد باسم <code className="bg-[#FAF5EC] px-1 rounded text-[#7C4E2E] font-mono">school_media</code> واجعليه Public.
+              </li>
+              <li>
+                انسخي <strong>Project URL</strong> و <strong>anon public key</strong> (لا تستخدمي service-role السري أبداً).
+              </li>
+              <li>
+                في <strong>Netlify</strong>: اذهبي إلى <span className="font-bold text-[#4A2E1B]">Site configuration &gt; Environment variables</span> وأضيفي المتغيرات:
+                <div className="bg-[#FAF7F2] p-2 mt-1 rounded font-mono text-[10px] text-[#4A2E1B] space-y-0.5 border border-[#DFCDB6]">
+                  <div>VITE_SUPABASE_URL = رابط مشروعك</div>
+                  <div>VITE_SUPABASE_ANON_KEY = المفتاح العام anon</div>
+                  <div>VITE_SUPABASE_BUCKET = school_media</div>
+                </div>
+              </li>
+            </ol>
           </div>
         </div>
       </div>

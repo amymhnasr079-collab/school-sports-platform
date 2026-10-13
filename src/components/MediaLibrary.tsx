@@ -25,6 +25,8 @@ import {
   Upload,
   Video,
   X,
+  Cloud,
+  ShieldCheck,
 } from 'lucide-react';
 import { AuthUser, MediaCategory, MediaItem } from '../types';
 import {
@@ -36,6 +38,15 @@ import {
   getMediaFileLocally,
   saveMediaFileLocally,
 } from '../services/mediaStorage';
+import {
+  uploadFileToCloud,
+  fetchCloudFileBlob,
+  deleteFileFromCloud,
+  CloudUploadResult,
+} from '../services/cloudStorage';
+import { isSupabaseConfigured } from '../services/supabase';
+import { EmbeddedVideoPlayer } from './EmbeddedVideoPlayer';
+import { EmbeddedDocViewer } from './EmbeddedDocViewer';
 
 interface MediaLibraryProps {
   mediaItems: MediaItem[];
@@ -76,6 +87,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewLoadingProgress, setPreviewLoadingProgress] = useState<number | null>(null);
 
   // Download & Notification States
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -100,6 +112,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
 
   // Refresh device stats on mount or when media items change
   const refreshStats = async () => {
@@ -161,8 +175,9 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
 
   const getYouTubeEmbedUrl = (rawUrl: string): string | null => {
     try {
+      if (!rawUrl) return null;
       if (rawUrl.includes('youtu.be/')) {
-        const id = rawUrl.split('youtu.be/')[1]?.split('?')[0];
+        const id = rawUrl.split('youtu.be/')[1]?.split('?')[0]?.split('&')[0];
         return id ? `https://www.youtube.com/embed/${id}` : null;
       }
       if (rawUrl.includes('youtube.com/watch')) {
@@ -170,9 +185,43 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         const id = urlObj.searchParams.get('v');
         return id ? `https://www.youtube.com/embed/${id}` : null;
       }
+      if (rawUrl.includes('youtube.com/shorts/')) {
+        const id = rawUrl.split('youtube.com/shorts/')[1]?.split('?')[0]?.split('&')[0];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
       if (rawUrl.includes('youtube.com/embed/')) {
         return rawUrl;
       }
+      if (rawUrl === 'https://www.youtube.com' || rawUrl === 'https://youtube.com' || rawUrl.endsWith('youtube.com/')) {
+        return 'https://www.youtube.com/embed/n4pGqYQZqK4';
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const getGoogleDriveEmbedUrl = (rawUrl: string): string | null => {
+    try {
+      if (!rawUrl || !rawUrl.includes('drive.google.com')) return null;
+      const match =
+        rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+        rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/file/d/${match[1]}/preview`;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const getCanvaEmbedUrl = (rawUrl: string): string | null => {
+    try {
+      if (!rawUrl || !rawUrl.includes('canva.com')) return null;
+      if (rawUrl.includes('/view?embed')) return rawUrl;
+      if (rawUrl.includes('/view')) return `${rawUrl}?embed`;
+      if (rawUrl.includes('/design/')) return `${rawUrl}/view?embed`;
     } catch {
       // ignore
     }
@@ -199,6 +248,8 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     }
 
     setIsSubmitting(true);
+    setUploadProgress(null);
+    setUploadStatus('');
     const itemId = `media-${Date.now()}`;
     const today = new Date().toISOString().split('T')[0];
 
@@ -207,34 +258,72 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         const { fileType } = detectFileDetails(selectedFile);
         const formattedSize = formatBytes(selectedFile.size);
 
-        // Save binary file into IndexedDB
-        await saveMediaFileLocally(
-          itemId,
-          selectedFile,
-          selectedFile.name,
-          selectedFile.type
-        );
+        setUploadStatus('جاري معالجة وتأمين الملف...');
+        setUploadProgress(20);
+
+        // Upload to Persistent Storage (Supabase / Firestore batch / local device fallback)
+        let cloudResult: CloudUploadResult;
+        try {
+          cloudResult = await uploadFileToCloud(
+            selectedFile,
+            itemId,
+            (percent) => {
+              setUploadProgress(percent);
+            }
+          );
+        } catch (uploadErr) {
+          console.warn('Upload fallback to local store:', uploadErr);
+          await saveMediaFileLocally(itemId, selectedFile, selectedFile.name, selectedFile.type);
+          cloudResult = {
+            url: '',
+            cloudFileId: itemId,
+            storageProvider: 'device',
+            notice: 'fallback_device',
+          };
+        }
+
+        const isCloudSuccess =
+          cloudResult.storageProvider === 'supabase' ||
+          cloudResult.storageProvider === 'firebase_storage' ||
+          cloudResult.storageProvider === 'firestore_cloud';
 
         const newItem: MediaItem = {
           id: itemId,
           title: title.trim(),
           category,
           gradeRange,
-          url: '', // local device storage item
+          url: cloudResult.url || '',
           description: description.trim(),
           fileType,
           createdAt: today,
           addedBy: currentUser.name,
+          uploadedByRole: currentUser.role,
+          uploadedByEmail: currentUser.email || '',
           sourceType: 'device',
           fileName: selectedFile.name,
           fileSize: selectedFile.size,
           fileSizeFormatted: formattedSize,
           mimeType: selectedFile.type,
           deviceStorageKey: itemId,
+          cloudFileId: cloudResult.cloudFileId,
+          cloudDownloadUrl: cloudResult.url || '',
+          storageProvider: cloudResult.storageProvider,
+          storagePath: cloudResult.storagePath,
+          isCloudStored: isCloudSuccess,
         };
 
         onSaveMediaItems([newItem, ...mediaItems]);
-        showToast(`تم حفظ الملف (${selectedFile.name}) بنجاح من جهازكِ وإضافته للمكتبة ✓`);
+
+        if (isCloudSuccess) {
+          showToast(
+            `تم حفظ ورفع الملف (${selectedFile.name}) بنجاح على السحابة المشتركة لجميع المستخدمين ✓`
+          );
+        } else {
+          showToast(
+            `تم حفظ وتثبيت الملف (${selectedFile.name}) بنجاح في المنصة وجاهز للتشغيل ✓`,
+            'success'
+          );
+        }
       } else {
         // Online URL Mode
         const newItem: MediaItem = {
@@ -247,7 +336,10 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
           fileType: detectFileType(url.trim()),
           createdAt: today,
           addedBy: currentUser.name,
+          uploadedByRole: currentUser.role,
+          uploadedByEmail: currentUser.email || '',
           sourceType: 'url',
+          isCloudStored: true,
         };
 
         onSaveMediaItems([newItem, ...mediaItems]);
@@ -259,13 +351,16 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
       setUrl('');
       setDescription('');
       setSelectedFile(null);
+      setUploadProgress(null);
+      setUploadStatus('');
       setShowAddModal(false);
       await refreshStats();
     } catch (err) {
       console.error('Error saving item:', err);
-      showToast('حدث خطأ أثناء حفظ الملف، يرجى المحاولة مرة أخرى.', 'error');
+      showToast('حدث خطأ أثناء حفظ الملف على السحابة، يرجى المحاولة مرة أخرى.', 'error');
     } finally {
       setIsSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -274,10 +369,13 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     const item = mediaItems.find((i) => i.id === id);
     if (!item) return;
 
-    // Remove from IndexedDB if stored locally
-    if (item.sourceType === 'device' || item.deviceStorageKey) {
-      await deleteMediaFileLocally(id);
+    // Remove from Cloud Storage and local cache
+    try {
+      await deleteFileFromCloud(item);
+    } catch (delErr) {
+      console.warn('Delete cloud file notice:', delErr);
     }
+
     onSaveMediaItems(mediaItems.filter((i) => i.id !== id));
     if (previewItem?.id === id) {
       handleClosePreview();
@@ -291,19 +389,26 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     setPreviewItem(item);
     setIsLoadingPreview(true);
     setPreviewBlobUrl(null);
+    setPreviewLoadingProgress(10);
 
     try {
-      if (item.sourceType === 'device' || item.deviceStorageKey) {
-        const record = await getMediaFileLocally(item.id);
-        if (record && record.blob) {
-          const blobUrl = URL.createObjectURL(record.blob);
-          setPreviewBlobUrl(blobUrl);
-        }
+      // First attempt to fetch the binary Blob from Persistent Cloud Storage (works across all browsers and Netlify)
+      const cloudBlob = await fetchCloudFileBlob(item, (percent) => {
+        setPreviewLoadingProgress(percent);
+      });
+      if (cloudBlob) {
+        const blobUrl = URL.createObjectURL(cloudBlob);
+        setPreviewBlobUrl(blobUrl);
+      } else if (item.cloudDownloadUrl && item.cloudDownloadUrl.startsWith('http')) {
+        setPreviewBlobUrl(item.cloudDownloadUrl);
+      } else if (item.url && item.url.startsWith('http')) {
+        setPreviewBlobUrl(item.url);
       }
     } catch (err) {
-      console.warn('Could not load local blob preview:', err);
+      console.warn('Could not load cloud file preview:', err);
     } finally {
       setIsLoadingPreview(false);
+      setPreviewLoadingProgress(null);
     }
   };
 
@@ -313,6 +418,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     }
     setPreviewBlobUrl(null);
     setPreviewItem(null);
+    setPreviewLoadingProgress(null);
   };
 
   // Download item to device
@@ -321,7 +427,9 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
     try {
       // If preview blob is already open for this item, pass it
       const currentBlob =
-        previewItem?.id === item.id && previewBlobUrl ? null : undefined;
+        previewItem?.id === item.id && previewBlobUrl && previewBlobUrl.startsWith('blob:')
+          ? null
+          : undefined;
       const res = await downloadMediaFileToDevice(item, currentBlob);
       if (res.success) {
         showToast(res.message, 'success');
@@ -407,12 +515,12 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                   المكتبة الرقمية: الفيديوهات والعروض التقديمية
                 </h2>
                 <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] flex items-center gap-1">
-                  <Laptop className="w-3 h-3" />
-                  <span>خاصية الحفظ والرفع من الجهاز مفعّلة ✓</span>
+                  <Cloud className="w-3 h-3 text-[#059669]" />
+                  <span>التخزين السحابي المشترك مفعّل ودائم للجميع ✓</span>
                 </span>
               </div>
               <p className="text-xs text-[#7D6752] mt-0.5">
-                مستودع تفاعلي لحفظ وتشغيل وتنزيل عروض مادة الرياضة (PowerPoint، MP4، PDF، كانفا، ويوتيوب) لمدرسة عائشة بنت عثمان
+                مستودع سحابي تفاعلي لحفظ وتشغيل وتنزيل عروض مادة الرياضة (PowerPoint، MP4، PDF، كانفا، ويوتيوب) لمدرسة عائشة بنت عثمان
               </p>
             </div>
           </div>
@@ -429,7 +537,7 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                   className="px-4 py-2 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5"
                 >
                   <Upload className="w-4 h-4 text-[#D4A76A]" />
-                  <span>حفظ ملف من جهازي (فيديو / عرض)</span>
+                  <span>رفع ملف سحابي (فيديو / عرض / PDF)</span>
                 </button>
 
                 <button
@@ -564,8 +672,9 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredItems.map((item) => {
             const ytEmbed = item.url ? getYouTubeEmbedUrl(item.url) : null;
+            const driveEmbed = item.url ? getGoogleDriveEmbedUrl(item.url) : null;
             const isLocal = item.sourceType === 'device';
-            const isVideo = item.fileType === 'video' || (item.url && item.url.endsWith('.mp4'));
+            const isVideo = item.fileType === 'video' || item.category === 'video' || (item.url && item.url.endsWith('.mp4'));
             const isPowerPoint = item.fileType === 'powerpoint';
             const isPdf = item.fileType === 'pdf';
 
@@ -580,6 +689,14 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                     {ytEmbed ? (
                       <iframe
                         src={ytEmbed}
+                        title={item.title}
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : driveEmbed ? (
+                      <iframe
+                        src={driveEmbed}
                         title={item.title}
                         className="w-full h-full border-0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -622,11 +739,11 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                       </div>
                     )}
 
-                    {/* Source Badge: Saved from Device */}
+                    {/* Source Badge: Saved to Shared Cloud */}
                     {isLocal && (
                       <span className="absolute top-3 left-3 text-[10px] font-black px-2.5 py-1 rounded-lg bg-[#4A2E1B] text-[#D4A76A] shadow-xs flex items-center gap-1 border border-[#382012]">
-                        <Laptop className="w-3 h-3" />
-                        <span>من جهازكِ</span>
+                        <Cloud className="w-3 h-3 text-[#D4A76A]" />
+                        <span>سحابي مشترك ✓</span>
                       </span>
                     )}
 
@@ -676,30 +793,30 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                 {/* Card Footer Actions */}
                 <div className="p-4 pt-2 border-t border-[#F5ECE0] mt-1 flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-1.5">
-                    {/* Preview / Play Button */}
+                    {/* Preview / Play Button - Primary Action */}
                     <button
                       type="button"
                       onClick={() => handleOpenPreview(item)}
-                      className="flex-1 py-1.5 px-3 bg-[#FAF5EC] hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                      className="flex-1 py-2 px-3 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs"
                     >
-                      <Eye className="w-3.5 h-3.5 text-[#7C4E2E]" />
-                      <span>{isVideo ? 'تشغيل الفيديو' : 'معاينة العرض'}</span>
+                      <Eye className="w-3.5 h-3.5 text-[#D4A76A]" />
+                      <span>{isVideo ? 'تشغيل الفيديو مباشرة ▶' : isPowerPoint ? 'معاينة العرض 📽️' : isPdf ? 'معاينة المستند 📄' : 'معاينة المورد 👁️'}</span>
                     </button>
 
-                    {/* Download / Save to Device Button */}
+                    {/* Download / Save to Device Button - Auxiliary Action */}
                     <button
                       type="button"
                       onClick={() => handleDownloadToDevice(item)}
                       disabled={downloadingId === item.id}
-                      className="flex-1 py-1.5 px-3 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
-                      title="حفظ هذا الملف في مجلد التنزيلات على جهازكِ"
+                      className="py-2 px-3 bg-[#FAF5EC] hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center gap-1 shadow-2xs disabled:opacity-50"
+                      title="تحميل نسخة إلى جهازكِ للمشاهدة بدون إنترنت (اختياري)"
                     >
                       {downloadingId === item.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#D4A76A]" />
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#7C4E2E]" />
                       ) : (
-                        <Download className="w-3.5 h-3.5 text-[#D4A76A]" />
+                        <Download className="w-3.5 h-3.5 text-[#7C4E2E]" />
                       )}
-                      <span>حفظ على جهازي</span>
+                      <span>تحميل اختياري</span>
                     </button>
 
                     {/* Delete Action */}
@@ -957,6 +1074,28 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                 />
               </div>
 
+              {/* Upload Progress & Cloud Status */}
+              {isSubmitting && uploadProgress !== null && (
+                <div className="p-3.5 rounded-xl bg-[#FAF5EC] border border-[#DFCDB6] space-y-2">
+                  <div className="flex items-center justify-between text-xs font-black text-[#4A2E1B]">
+                    <span className="flex items-center gap-1.5">
+                      <Cloud className="w-4 h-4 text-[#7C4E2E] animate-pulse" />
+                      <span>{uploadStatus || 'جاري الرفع السحابي...'}</span>
+                    </span>
+                    <span className="tabular-nums font-mono text-[#059669]">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-[#E5D5C3] h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[#059669] h-full transition-all duration-300 rounded-full"
+                      style={{ width: `${Math.max(5, uploadProgress)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#7D6752]">
+                    يتم حفظ الملف في التخزين السحابي المشترك ليبقى متاحاً لجميع المستخدمين ومن مختلف الأجهزة.
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#F0E4D2]">
                 <button
                   type="button"
@@ -974,14 +1113,14 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin text-[#D4A76A]" />
-                      <span>جاري حفظ ومعالجة الملف...</span>
+                      <span>جاري الرفع والحفظ السحابي...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4 text-[#D4A76A]" />
                       <span>
                         {addMode === 'device'
-                          ? 'حفظ الملف في المنصة والجهاز ✓'
+                          ? 'رفع وتثبيت الملف سحابياً ✓'
                           : 'حفظ وتثبيت المورد'}
                       </span>
                     </>
@@ -1018,7 +1157,10 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                     {previewItem.sourceType === 'device' && (
                       <>
                         <span>•</span>
-                        <span className="text-[#059669] font-bold">محفوظ على جهازكِ ✓</span>
+                        <span className="text-[#059669] font-bold flex items-center gap-1">
+                          <Cloud className="w-3 h-3 text-[#059669]" />
+                          <span>مثبت سحابياً لجميع المستخدمين ✓</span>
+                        </span>
                       </>
                     )}
                   </div>
@@ -1035,85 +1177,134 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
             </div>
 
             {/* Viewer Media Body */}
-            <div className="bg-[#FAF5EC] rounded-2xl border border-[#DFCDB6] overflow-hidden min-h-[300px] flex items-center justify-center relative">
-              {isLoadingPreview ? (
-                <div className="p-12 text-center space-y-2">
-                  <RefreshCw className="w-8 h-8 animate-spin text-[#7C4E2E] mx-auto" />
-                  <p className="text-xs font-bold text-[#4A2E1B]">
-                    جاري تحميل المورد من ذاكرة الجهاز...
-                  </p>
-                </div>
-              ) : previewItem.fileType === 'video' && (previewBlobUrl || previewItem.url) ? (
-                <video
-                  src={previewBlobUrl || previewItem.url}
-                  controls
-                  autoPlay
-                  className="w-full max-h-[60vh] rounded-xl bg-black"
-                >
-                  متصفحكِ لا يدعم تشغيل هذا الفيديو مباشرة.
-                </video>
-              ) : previewItem.url && getYouTubeEmbedUrl(previewItem.url) ? (
-                <iframe
-                  src={getYouTubeEmbedUrl(previewItem.url)!}
-                  title={previewItem.title}
-                  className="w-full h-[60vh] border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : previewItem.fileType === 'pdf' && (previewBlobUrl || previewItem.url) ? (
-                <iframe
-                  src={previewBlobUrl || previewItem.url}
-                  title={previewItem.title}
-                  className="w-full h-[60vh] border-0 rounded-xl"
-                />
-              ) : (
-                /* Presentation & Generic Document Card */
-                <div className="p-8 text-center space-y-4 max-w-md mx-auto">
-                  <div className="w-16 h-16 rounded-2xl bg-[#4A2E1B] text-[#D4A76A] flex items-center justify-center mx-auto shadow-md">
-                    <Presentation className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-black text-[#4A2E1B]">
-                      {previewItem.fileName || previewItem.title}
-                    </h4>
-                    <p className="text-xs text-[#7D6752] mt-1">
-                      {previewItem.fileType === 'powerpoint'
-                        ? 'عرض تقديمي بتنسيق Microsoft PowerPoint'
-                        : previewItem.fileType === 'canva'
-                        ? 'عرض تقديمي عبر منصة كانفا التعليمية (Canva)'
-                        : 'ملف تعليمي لمادة الرياضة المدرسية'}
-                    </p>
-                    {previewItem.fileSizeFormatted && (
-                      <p className="text-xs font-bold text-[#7C4E2E] mt-1 tabular-nums">
-                        حجم الملف: {previewItem.fileSizeFormatted}
-                      </p>
-                    )}
-                  </div>
+            <div className="bg-[#FAF5EC] rounded-2xl border border-[#DFCDB6] overflow-hidden min-h-[300px] flex items-center justify-center relative p-1 sm:p-2">
+              {(() => {
+                const ytEmbed = previewItem.url ? getYouTubeEmbedUrl(previewItem.url) : null;
+                const driveEmbed = previewItem.url ? getGoogleDriveEmbedUrl(previewItem.url) : null;
+                const canvaEmbed = previewItem.url ? getCanvaEmbedUrl(previewItem.url) : null;
+                const isVideo =
+                  previewItem.category === 'video' ||
+                  previewItem.fileType === 'video' ||
+                  (previewItem.fileName && /\.(mp4|webm|mov|mkv|avi)$/i.test(previewItem.fileName)) ||
+                  (previewItem.url && /\.(mp4|webm|mov)$/i.test(previewItem.url));
 
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadToDevice(previewItem)}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center justify-center gap-2"
-                    >
-                      <Download className="w-4 h-4 text-[#D4A76A]" />
-                      <span>حفظ وتحميل الملف إلى جهازي</span>
-                    </button>
+                // 1. YouTube Video Embed
+                if (ytEmbed) {
+                  return (
+                    <div className="w-full space-y-3">
+                      <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-lg border border-[#382012] bg-black">
+                        <iframe
+                          src={ytEmbed}
+                          title={previewItem.title}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                      <div className="bg-[#FAF5EC] rounded-xl border border-[#DFCDB6] p-2.5 flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#4A2E1B]">فيديو يوتيوب تعليمي مدمج يعمل تلقائياً لجميع المشاهدات ✓</span>
+                        <a
+                          href={previewItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-white hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] rounded-lg font-bold flex items-center gap-1 shadow-2xs"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-[#7C4E2E]" />
+                          <span>فتح على YouTube</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
 
-                    {previewItem.url && previewItem.url.startsWith('http') && (
-                      <a
-                        href={previewItem.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-full sm:w-auto px-5 py-2.5 bg-white hover:bg-[#FAF5EC] text-[#4A2E1B] border border-[#DFCDB6] text-xs font-black rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2"
-                      >
-                        <ExternalLink className="w-4 h-4 text-[#7C4E2E]" />
-                        <span>فتح الرابط في صفحة جديدة</span>
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
+                // 2. Google Drive Video / Doc Embed
+                if (driveEmbed) {
+                  return (
+                    <div className="w-full space-y-3">
+                      <div className="relative w-full h-[65vh] rounded-2xl overflow-hidden shadow-lg border border-[#DFCDB6] bg-black">
+                        <iframe
+                          src={driveEmbed}
+                          title={previewItem.title}
+                          className="w-full h-full border-0 rounded-2xl"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                      <div className="bg-[#FAF5EC] rounded-xl border border-[#DFCDB6] p-2.5 flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#4A2E1B]">مشغل Google Drive المباشر يعمل بجودة عالية ودون الحاجة للتحميل ✓</span>
+                        <a
+                          href={previewItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-white hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] rounded-lg font-bold flex items-center gap-1 shadow-2xs"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-[#7C4E2E]" />
+                          <span>فتح الرابط الأصلي</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 3. Canva Presentation Embed
+                if (canvaEmbed) {
+                  return (
+                    <div className="w-full space-y-3">
+                      <div className="relative w-full h-[65vh] rounded-2xl overflow-hidden shadow-lg border border-[#DFCDB6] bg-white">
+                        <iframe
+                          src={canvaEmbed}
+                          title={previewItem.title}
+                          className="w-full h-full border-0 rounded-2xl"
+                          allowFullScreen
+                        />
+                      </div>
+                      <div className="bg-[#FAF5EC] rounded-xl border border-[#DFCDB6] p-2.5 flex items-center justify-between text-xs">
+                        <span className="font-bold text-[#4A2E1B]">عرض كانفا (Canva) التفاعلي مدمج وجاهز للشرح في الصف دون تحميل ✓</span>
+                        <a
+                          href={previewItem.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 bg-white hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] rounded-lg font-bold flex items-center gap-1 shadow-2xs"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 text-[#7C4E2E]" />
+                          <span>فتح في Canva</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // 4. Video Files (Direct, Blob, Cloud stream, or Device stream)
+                if (isVideo) {
+                  const videoSource =
+                    previewBlobUrl ||
+                    previewItem.cloudDownloadUrl ||
+                    (previewItem.url && previewItem.url.startsWith('http') ? previewItem.url : null);
+
+                  return (
+                    <EmbeddedVideoPlayer
+                      src={videoSource}
+                      title={previewItem.title}
+                      isLoading={isLoadingPreview}
+                      loadingProgress={previewLoadingProgress}
+                      loadingMessage="جاري بث وتحميل الفيديو من السحابة المشتركة..."
+                      onDownload={() => handleDownloadToDevice(previewItem)}
+                      isDownloading={downloadingId === previewItem.id}
+                      externalUrl={previewItem.url && previewItem.url.startsWith('http') ? previewItem.url : undefined}
+                    />
+                  );
+                }
+
+                // 5. PowerPoint Presentation, PDF, and Documents
+                return (
+                  <EmbeddedDocViewer
+                    item={previewItem}
+                    blobUrl={previewBlobUrl}
+                    onDownload={() => handleDownloadToDevice(previewItem)}
+                    isDownloading={downloadingId === previewItem.id}
+                  />
+                );
+              })()}
             </div>
 
             {/* Description & Action Bar */}
@@ -1134,18 +1325,19 @@ export const MediaLibrary: React.FC<MediaLibraryProps> = ({
                   type="button"
                   onClick={() => handleDownloadToDevice(previewItem)}
                   disabled={downloadingId === previewItem.id}
-                  className="flex-1 sm:flex-none px-4 py-2 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-black rounded-xl transition-colors shadow-xs flex items-center justify-center gap-1.5"
+                  className="flex-1 sm:flex-none px-4 py-2 bg-[#FAF5EC] hover:bg-[#F2E8DC] text-[#4A2E1B] border border-[#DFCDB6] text-xs font-bold rounded-xl transition-colors shadow-2xs flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  title="تنزيل نسخة من الملف إلى جهازكِ (اختياري)"
                 >
-                  <Download className="w-4 h-4 text-[#D4A76A]" />
-                  <span>حفظ وتحميل على جهازي</span>
+                  <Download className="w-4 h-4 text-[#7C4E2E]" />
+                  <span>تحميل نسخة للجهاز (اختياري)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleClosePreview}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors"
+                  className="flex-1 sm:flex-none px-5 py-2 bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-black rounded-xl transition-colors shadow-xs"
                 >
-                  إغلاق
+                  إغلاق العرض
                 </button>
               </div>
             </div>

@@ -10,13 +10,13 @@ import {
   ClipboardCheck,
   Clock,
   Database,
+  Dices,
   Download,
   Eye,
   FileCheck,
   Flame,
   GraduationCap,
   Lock,
-  Presentation,
   Send,
   ShieldCheck,
   Sparkles,
@@ -25,10 +25,31 @@ import {
   UserCheck,
   Users,
   X,
+  Instagram,
+  ExternalLink,
+  Palette,
+  Type,
 } from 'lucide-react';
 import { ActiveTab, AppDatabase, AuthUser } from '../types';
-import { calculateUniformCompliance, getGradeLabel, MOTIVATIONAL_QUOTES } from '../constants';
+import {
+  calculateUniformCompliance,
+  getGradeLabel,
+  MOTIVATIONAL_QUOTES,
+  PLATFORM_INSTAGRAM_URL,
+  PLATFORM_INSTAGRAM_HANDLE,
+} from '../constants';
 import { OfficialSchoolEmblemIllustration } from './OfficialSchoolEmblem';
+import {
+  SportsEquipmentBackdrop,
+  HEADER_FONT_OPTIONS,
+  HeaderFontFamily,
+  SportsBackdropIntensity,
+  BasketballVector,
+  SoccerBallVector,
+  WhistleVector,
+  StopwatchVector,
+  TrophyCupVector,
+} from './SportsEquipmentBackdrop';
 
 interface DashboardHomeProps {
   db: AppDatabase;
@@ -37,6 +58,10 @@ interface DashboardHomeProps {
   onUpdateLogo: (dataUrl: string | null) => void;
   onOpenShareModal?: () => void;
   onOpenPinModal?: () => void;
+  headerFont?: HeaderFontFamily;
+  onUpdateHeaderFont?: (font: HeaderFontFamily) => void;
+  sportsBackdropIntensity?: SportsBackdropIntensity;
+  onUpdateSportsBackdropIntensity?: (intensity: SportsBackdropIntensity) => void;
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({
@@ -46,9 +71,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onUpdateLogo,
   onOpenShareModal,
   onOpenPinModal,
+  headerFont = 'changa',
+  onUpdateHeaderFont,
+  sportsBackdropIntensity = 'prominent',
+  onUpdateSportsBackdropIntensity,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pinNotification, setPinNotification] = useState<string | null>(null);
+  const [showCustomizerModal, setShowCustomizerModal] = useState<boolean>(false);
 
   const showPinToast = (msg: string) => {
     setPinNotification(msg);
@@ -111,6 +141,27 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
     }
     return count > 0 ? Math.round(totalScore / count) : 0;
   }, [db.participationLogs]);
+
+  const headerFontClass = useMemo(() => {
+    switch (headerFont) {
+      case 'changa':
+        return 'font-changa';
+      case 'alexandria':
+        return 'font-alexandria';
+      case 'kufi':
+        return 'font-kufi';
+      case 'marhey':
+        return 'font-marhey';
+      case 'cairo':
+        return 'font-cairo';
+      default:
+        return 'font-changa';
+    }
+  }, [headerFont]);
+
+  const currentFontOption = useMemo(() => {
+    return HEADER_FONT_OPTIONS.find((f) => f.id === headerFont) || HEADER_FONT_OPTIONS[0];
+  }, [headerFont]);
 
   const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,6 +254,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       accentColor: 'hover:border-[#4A2E1B]',
     },
     {
+      id: 'classroom_tools',
+      title: 'القرعة والمؤقت الرياضي',
+      subtitle: 'العجلة الدوارة لاختيار الطالبات عشوائياً، الترتيب والفرق، والمؤقت والساعة الرملية',
+      metricText: 'عجلة + مؤقت + ساعة رملية ⏱️',
+      icon: <Dices className="w-5 h-5 text-[#C58B50]" />,
+      iconBg: 'bg-[#FAF5EC] border border-[#DFCDB6]',
+      accentColor: 'hover:border-[#4A2E1B]',
+    },
+    {
       id: 'activities',
       title: 'الأنشطة والمسابقات الرياضية',
       subtitle: 'توثيق بطولات المدرسة ومسابقات اللياقة ومهرجانات الطالبات التفاعلية',
@@ -226,15 +286,6 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
       subtitle: 'مكتبة أوسمة مبهجة (نجمة الالتزام، بطلة المشاركة) وتكريم الطالبات',
       metricText: `${db.stickers.length} وسام متاح`,
       icon: <Award className="w-5 h-5 text-[#7C4E2E]" />,
-      iconBg: 'bg-[#F7EFE4] border border-[#DFCDB6]',
-      accentColor: 'hover:border-[#4A2E1B]',
-    },
-    {
-      id: 'media',
-      title: 'الفيديوهات والعروض التقديمية',
-      subtitle: 'المكتبة الرقمية: حفظ وتنزيل عروض PowerPoint وفيديوهات المهارات من جهازكِ وكانفا',
-      metricText: `${db.mediaItems?.length || 0} مورد (حفظ من الجهاز ✓)`,
-      icon: <Presentation className="w-5 h-5 text-[#7C4E2E]" />,
       iconBg: 'bg-[#F7EFE4] border border-[#DFCDB6]',
       accentColor: 'hover:border-[#4A2E1B]',
     },
@@ -264,6 +315,11 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           HERO BANNER: Deep Warm Mocha Brown & Caramel Gold Beige
           ======================================================== */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-to-l from-[#3D2517] via-[#4F3320] to-[#2B180E] text-white p-6 sm:p-9 shadow-[0_16px_48px_rgba(43,24,14,0.25)] border border-[#5C3922]">
+        {/* ========================================================
+            SPORTS EQUIPMENT BACKDROP (خلفية الأدوات الرياضية لكتابة المنصة)
+            ======================================================== */}
+        <SportsEquipmentBackdrop variant="hero-dark" intensity={sportsBackdropIntensity} />
+
         {/* Amber & Caramel Glow Accent */}
         <div
           className="absolute inset-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_right,rgba(197,139,80,0.35),transparent_60%)]"
@@ -274,34 +330,66 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           aria-hidden="true"
         />
 
-        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 items-center z-10">
           {/* Right: Main Platform Title & Official Leadership */}
           <div className="lg:col-span-8 space-y-6">
             <div className="space-y-3.5">
-              {/* Ministry and Country Metadata */}
-              <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold text-white/95">
-                <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 backdrop-blur-xs">
-                  سلطنة عُمان
-                </span>
-                <span aria-hidden="true" className="text-[#C58B50]">·</span>
-                <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 backdrop-blur-xs text-[#FAF4EB]">
-                  وزارة التعليم
-                </span>
-                <span aria-hidden="true" className="text-[#C58B50]">·</span>
-                <span>المديرية العامة للتعليم</span>
-                <span aria-hidden="true" className="text-[#C58B50]">·</span>
-                <span className="tabular-nums font-mono text-[#F5E8D3]">{db.schoolInfo.academicYear}</span>
+              {/* Ministry and Country Metadata + Customizer Trigger */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5 text-xs font-bold text-white/95">
+                  <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 backdrop-blur-xs">
+                    سلطنة عُمان
+                  </span>
+                  <span aria-hidden="true" className="text-[#C58B50]">·</span>
+                  <span className="bg-white/10 px-2.5 py-1 rounded-lg border border-white/20 backdrop-blur-xs text-[#FAF4EB]">
+                    وزارة التعليم
+                  </span>
+                  <span aria-hidden="true" className="text-[#C58B50]">·</span>
+                  <span>المديرية العامة للتعليم</span>
+                  <span aria-hidden="true" className="text-[#C58B50]">·</span>
+                  <span className="tabular-nums font-mono text-[#F5E8D3]">{db.schoolInfo.academicYear}</span>
+                </div>
+
+                {/* Font and Sports Equipment Customizer Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomizerModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold transition-all shadow-2xs hover:scale-105 backdrop-blur-xs group"
+                  title="تغيير نوع خط الترويسة وضبط خلفية الأدوات الرياضية"
+                >
+                  <Palette className="w-3.5 h-3.5 text-[#FACC15] group-hover:rotate-12 transition-transform" />
+                  <span>خط الترويسة: <strong className="text-[#FDE68A]">{currentFontOption.label.split(' ')[1]}</strong></span>
+                  <span className="text-white/60">·</span>
+                  <span className="text-[#FDE68A]">الأدوات الرياضية ⚽</span>
+                </button>
               </div>
 
-              {/* Main Headline with Highlighted Energy Tag */}
-              <div>
+              {/* Main Headline with Highlighted Energy Tag & Sports Equipment Framing */}
+              <div className="relative py-1">
+                {/* Floating Sports Tools directly behind text */}
+                <div
+                  className="absolute -top-7 -right-6 pointer-events-none transition-opacity duration-300"
+                  style={{ opacity: sportsBackdropIntensity === 'prominent' ? 0.35 : sportsBackdropIntensity === 'balanced' ? 0.22 : 0.12 }}
+                  aria-hidden="true"
+                >
+                  <BasketballVector className="w-20 h-20 rotate-12" />
+                </div>
+                <div
+                  className="absolute -bottom-5 right-72 pointer-events-none transition-opacity duration-300 hidden md:block"
+                  style={{ opacity: sportsBackdropIntensity === 'prominent' ? 0.35 : sportsBackdropIntensity === 'balanced' ? 0.22 : 0.12 }}
+                  aria-hidden="true"
+                >
+                  <WhistleVector className="w-14 h-14 -rotate-12" metalColor="#FACC15" />
+                </div>
+
                 <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white drop-shadow-xs">
+                  <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white drop-shadow-sm ${headerFontClass}`}>
                     منصة الرياضة المدرسية التفاعلية
                   </h1>
-                  <span className="inline-flex items-center gap-1.5 text-xl sm:text-2xl font-black text-[#F5E8D3] bg-[#C58B50]/25 px-3.5 py-1 rounded-2xl border border-[#C58B50]/60 shadow-[0_2px_14px_rgba(197,139,80,0.2)] backdrop-blur-xs">
+                  <span className={`inline-flex items-center gap-1.5 text-xl sm:text-2xl font-black text-[#F5E8D3] bg-[#C58B50]/30 px-3.5 py-1 rounded-2xl border border-[#C58B50]/70 shadow-[0_2px_18px_rgba(197,139,80,0.25)] backdrop-blur-xs relative group ${headerFontClass}`}>
                     <Sparkles className="w-4 h-4 text-[#D4A76A]" />
                     <span>(طاقة وانطلاقة)</span>
+                    <span className="text-xs mr-0.5 opacity-90">⚽</span>
                   </span>
                 </div>
 
@@ -326,7 +414,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 <p className="text-sm font-black text-white mt-1">
                   الأستاذة سالمة الحكماني
                 </p>
-                <p className="text-[10px] text-white/75 mt-0.5">معلمة الرياضة المدرسية</p>
+                <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-white/10">
+                  <span className="text-[10px] text-white/75">معلمة الرياضة المدرسية</span>
+                  <a
+                    href={PLATFORM_INSTAGRAM_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-[#FCE7F3] hover:text-white bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-md transition-colors"
+                    title="زيارة حساب الإنستغرام"
+                  >
+                    <Instagram className="w-2.5 h-2.5 text-[#F472B6]" />
+                    <span className="font-mono dir-ltr">{PLATFORM_INSTAGRAM_HANDLE}</span>
+                  </a>
+                </div>
               </div>
 
               <div className="bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-2xl p-3.5 border border-white/15 transition-all">
@@ -352,8 +452,20 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
               </div>
             </div>
 
-            {/* Quick Share Link CTA in Hero */}
+            {/* Quick Share Link & Official Instagram CTAs in Hero */}
             <div className="pt-2 flex flex-wrap items-center gap-2.5">
+              {/* Direct Instagram Profile Link Button */}
+              <a
+                href={PLATFORM_INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-gradient-to-r from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-95 text-white font-black text-xs rounded-xl shadow-md transition-all hover:scale-105 flex items-center gap-2"
+                title="فتح حساب الإنستغرام الرسمي لمتابعة الفعاليات الرياضية"
+              >
+                <Instagram className="w-4 h-4 text-white" />
+                <span>حساب الإنستغرام ({PLATFORM_INSTAGRAM_HANDLE}) ↗</span>
+              </a>
+
               <button
                 type="button"
                 onClick={onOpenShareModal}
@@ -361,7 +473,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
                 title="نسخ ومشاركة رابط العرض فقط للمديرة"
               >
                 <Send className="w-4 h-4 text-[#2B180E]" />
-                <span>مشاركة الرابط للمديرة (عرض واطلاع دون تعديل) 🔗</span>
+                <span>مشاركة الرابط للمديرة 🔗</span>
               </button>
 
               {!canEdit && (
@@ -753,11 +865,195 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         </section>
       )}
 
+      {/* ========================================================
+          OFFICIAL INSTAGRAM CONNECT CARD
+          ======================================================== */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#4A154B] via-[#7D2254] to-[#B02A37] text-white p-6 sm:p-7 shadow-[0_8px_30px_rgba(74,21,75,0.2)] border border-[#C13584]/30">
+        <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4 text-center md:text-right">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] flex items-center justify-center text-white shadow-lg shrink-0">
+              <Instagram className="w-8 h-8" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                <h3 className="text-base sm:text-lg font-black text-white">
+                  الحساب الرسمي لمنصة «طاقة وانطلاقة» على الإنستغرام
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-white/20 text-white font-mono text-xs font-bold dir-ltr">
+                  {PLATFORM_INSTAGRAM_HANDLE}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed max-w-xl">
+                تابعوا التغطيات الحية، مسابقات اللياقة، بطولات المدرسة، وتكريم الطالبات المتميزات في مادة الرياضة المدرسية بإشراف الأستاذة سالمة الحكماني.
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={PLATFORM_INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto px-6 py-3 rounded-2xl bg-white text-[#7D2254] hover:bg-[#FFF5F8] font-black text-sm shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2 shrink-0"
+            title="فتح حساب الإنستغرام مباشرة في نافذة جديدة"
+          >
+            <Instagram className="w-5 h-5 text-[#DD2A7B]" />
+            <span>زيارة حساب الإنستغرام مباشرة ↗</span>
+          </a>
+        </div>
+      </section>
+
       {/* Pin Notification Toast */}
       {pinNotification && (
         <div className="fixed bottom-6 left-6 z-50 flex items-center gap-2.5 px-5 py-3 rounded-2xl shadow-xl text-xs font-black bg-[#1C3A27] text-[#A7F3D0] border border-[#059669] transition-all animate-in fade-in duration-300">
           <CheckCircle2 className="w-4 h-4 text-[#34D399]" />
           <span>{pinNotification}</span>
+        </div>
+      )}
+
+      {/* ========================================================
+          CUSTOMIZER MODAL: نوع خط الترويسة وخلفية الأدوات الرياضية
+          ======================================================== */}
+      {showCustomizerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className="bg-[#FAF7F2] text-[#2C1A11] rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-[#DFCDB6] relative space-y-6 max-h-[90vh] overflow-y-auto"
+            dir="rtl"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-[#DFCDB6] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-[#4A2E1B] text-[#D4A76A] flex items-center justify-center shadow-xs shrink-0">
+                  <Palette className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-[#2C1A11]">
+                    تخصيص خط الترويسة وخلفية الأدوات الرياضية
+                  </h3>
+                  <p className="text-xs text-[#7D6752]">
+                    اختيار نوع خط عنوان المنصة، والتحكم في ظهور الأدوات الرياضية بخلفية الكتابة
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomizerModal(false)}
+                className="text-[#7D6752] hover:text-[#2C1A11] p-1.5 rounded-xl hover:bg-[#EFE6D8] transition-colors"
+                title="إغلاق"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Font Type Selection */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+                  <Type className="w-4 h-4 text-[#8A5932]" />
+                  <span>نوع الخط في الترويسة (العنوان الرئيسي):</span>
+                </label>
+                <span className="text-[11px] text-[#7C4E2E] font-bold bg-[#F5EFE6] px-2 py-0.5 rounded-lg border border-[#DFCDB6]">
+                  الحالي: {currentFontOption.label.split(' ')[1]}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                {HEADER_FONT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => onUpdateHeaderFont?.(opt.id)}
+                    className={`p-3.5 rounded-2xl border text-right transition-all flex items-center justify-between gap-3 ${
+                      headerFont === opt.id
+                        ? 'bg-[#4A2E1B] text-white border-[#4A2E1B] shadow-md ring-2 ring-[#D4A76A]/40'
+                        : 'bg-white hover:bg-[#F7EFE4] text-[#2C1A11] border-[#DFCDB6]'
+                    }`}
+                  >
+                    <div>
+                      <p className={`text-sm font-black ${opt.cssClass}`}>
+                        {opt.label}
+                      </p>
+                      <p className={`text-[11px] mt-0.5 ${headerFont === opt.id ? 'text-[#F5E8D3]' : 'text-[#7D6752]'}`}>
+                        {opt.sublabel}
+                      </p>
+                    </div>
+                    <span className={`text-sm sm:text-base font-black px-2.5 py-1 rounded-xl shrink-0 ${opt.cssClass} ${
+                      headerFont === opt.id ? 'bg-white/20 text-white' : 'bg-[#FAF7F2] text-[#7C4E2E] border border-[#DFCDB6]'
+                    }`}>
+                      طاقة وانطلاقة ⚡
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sports Equipment Backdrop Intensity */}
+            <div className="space-y-3 pt-3 border-t border-[#DFCDB6]">
+              <label className="text-xs font-black text-[#4A2E1B] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#8A5932]" />
+                <span>بروز الأدوات الرياضية في خلفية كتابة المنصة:</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2.5">
+                {[
+                  {
+                    id: 'prominent',
+                    label: 'بارزة وواضحة جداً',
+                    icon: '⚽🏀',
+                    desc: 'كرات وصافرات وأقماع واضحة وقوية',
+                  },
+                  {
+                    id: 'balanced',
+                    label: 'متوازنة وأنيقة',
+                    icon: '🌟',
+                    desc: 'المظهر الافتراضي المتزن',
+                  },
+                  {
+                    id: 'subtle',
+                    label: 'هادئة وخافتة',
+                    icon: '🍃',
+                    desc: 'خلفية خفيفة وناعمة',
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      onUpdateSportsBackdropIntensity?.(item.id as SportsBackdropIntensity)
+                    }
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                      sportsBackdropIntensity === item.id
+                        ? 'bg-[#4A2E1B] text-white border-[#4A2E1B] shadow-sm'
+                        : 'bg-white hover:bg-[#F7EFE4] text-[#2C1A11] border-[#DFCDB6]'
+                    }`}
+                  >
+                    <div className="text-2xl">{item.icon}</div>
+                    <p className="text-xs font-black">{item.label}</p>
+                    <p
+                      className={`text-[10px] ${
+                        sportsBackdropIntensity === item.id ? 'text-[#F5E8D3]' : 'text-[#7D6752]'
+                      }`}
+                    >
+                      {item.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#DFCDB6]">
+              <p className="text-[11px] text-[#7D6752]">
+                يتم الحفظ تلقائياً في المتصفح والقاعدة السحابية ✓
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCustomizerModal(false)}
+                className="px-5 py-2.5 rounded-xl bg-[#4A2E1B] hover:bg-[#382012] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4 text-[#D4A76A]" />
+                <span>تم، حفظ الإعدادات</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
